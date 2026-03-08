@@ -1,4 +1,4 @@
-// settings side panel - slides in from right, overlays content
+// settings side panel slides in from right, overlays content
 // backdrop click to close, gear icon in subnav triggers open
 // dark mode uses CSS var overrides on document.documentElement
 
