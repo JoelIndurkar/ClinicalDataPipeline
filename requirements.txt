@@ -6,3 +6,6 @@ flask
 flask-cors
 fastapi
 uvicorn
+pytest
+pytest-cov
+httpx

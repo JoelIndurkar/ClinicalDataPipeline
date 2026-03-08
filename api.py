@@ -1,5 +1,5 @@
 import sqlite3
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from scipy import stats
 
@@ -75,7 +75,11 @@ def get_summary(): # for ea sample, compute total count then ea population's cou
     return [dict(row) for row in rows]
 
 @app.get("/api/boxplot-data")
-def get_boxplot_data(): # filter mel + PBMC + miraclib, compute %/population/sample - math done in SQL
+def get_boxplot_data(
+    condition: str = Query(default="melanoma"),
+    sample_type: str = Query(default="PBMC"),
+    treatment: str = Query(default="miraclib"),
+): # compute %/population/sample, filter by condition+sample_type+treatment - math done in SQL
     conn = get_db()
     try:
         # treatment/response from samples, condition/sex from subjects
@@ -92,12 +96,12 @@ def get_boxplot_data(): # filter mel + PBMC + miraclib, compute %/population/sam
                 FROM cell_counts
                 GROUP BY sample
             ) totals ON cc.sample = totals.sample
-            WHERE sub.condition = 'melanoma'
-              AND s.sample_type = 'PBMC'
-              AND s.treatment = 'miraclib'
+            WHERE sub.condition = ?
+              AND s.sample_type = ?
+              AND s.treatment = ?
               AND s.response IN ('yes', 'no')  -- exclude healthy (null response)
             ORDER BY cc.population, s.response
-        """).fetchall()
+        """, (condition, sample_type, treatment)).fetchall()
     finally:
         conn.close()
 
@@ -114,7 +118,11 @@ def get_boxplot_data(): # filter mel + PBMC + miraclib, compute %/population/sam
     return result
 
 @app.get("/api/stats")
-def get_stats(): # same filter as boxplot-data, Mann-Whitney U/population
+def get_stats(
+    condition: str = Query(default="melanoma"),
+    sample_type: str = Query(default="PBMC"),
+    treatment: str = Query(default="miraclib"),
+): # Mann-Whitney U per population, same filter as boxplot-data
     conn = get_db()
     try:
         # unrounded bc mannwhitneyu works on raw floats
@@ -131,12 +139,12 @@ def get_stats(): # same filter as boxplot-data, Mann-Whitney U/population
                 FROM cell_counts
                 GROUP BY sample
             ) totals ON cc.sample = totals.sample
-            WHERE sub.condition = 'melanoma'
-              AND s.sample_type = 'PBMC'
-              AND s.treatment = 'miraclib'
+            WHERE sub.condition = ?
+              AND s.sample_type = ?
+              AND s.treatment = ?
               AND s.response IN ('yes', 'no')
             ORDER BY cc.population
-        """).fetchall()
+        """, (condition, sample_type, treatment)).fetchall()
     finally:
         conn.close()
 

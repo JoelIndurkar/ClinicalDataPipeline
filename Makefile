@@ -1,4 +1,4 @@
-.PHONY: setup pipeline dashboard
+.PHONY: setup pipeline dashboard test
 
 setup:
 	pip install -r requirements.txt
@@ -10,3 +10,6 @@ pipeline:
 
 dashboard:
 	(python3 -m uvicorn api:app --host 0.0.0.0 --port 8000 & cd dashboard && npm run dev -- --host 0.0.0.0)
+
+test:
+	python3 -m pytest tests/ -v --cov=. --cov-report=term-missing
