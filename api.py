@@ -1,0 +1,46 @@
+import sqlite3
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+DB_PATH = "clinical_data.db"
+
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+@app.get("/api/summary")
+def get_summary():
+    # for each sample, compute total count then each population's count and percentage
+    conn = get_db()
+    try:
+        rows = conn.execute("""
+            SELECT
+                cc.sample,
+                totals.total_count,
+                cc.population,
+                cc.count,
+                ROUND(cc.count * 100.0 / totals.total_count, 2) AS percentage
+            FROM cell_counts cc
+            JOIN (
+                SELECT sample, SUM(count) AS total_count
+                FROM cell_counts
+                GROUP BY sample
+            ) totals ON cc.sample = totals.sample
+            ORDER BY cc.sample, cc.population
+        """).fetchall()
+    finally:
+        conn.close()
+
+    return [dict(row) for row in rows]
