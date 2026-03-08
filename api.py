@@ -49,6 +49,7 @@ def get_schema_info(): # returns table names, columns, and row counts
 
 @app.get("/api/summary")
 def get_summary(): # for ea sample, compute total count then ea population's count and %
+    # all math done in SQL. no Python loops over rows. subquery gets totals, join computes %
     conn = get_db()
     try:
         # subquery gets per sample tots
@@ -74,7 +75,7 @@ def get_summary(): # for ea sample, compute total count then ea population's cou
     return [dict(row) for row in rows]
 
 @app.get("/api/boxplot-data")
-def get_boxplot_data(): # filter mel + PBMC + miraclib, compute %/population/sample
+def get_boxplot_data(): # filter mel + PBMC + miraclib, compute %/population/sample - math done in SQL
     conn = get_db()
     try:
         # treatment/response from samples, condition/sex from subjects

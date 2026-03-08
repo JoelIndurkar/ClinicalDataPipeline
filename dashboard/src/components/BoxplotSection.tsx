@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // Design choices:
 // - hand-rolled SVG gives full control over layout and avoids the black-box rendering
@@ -27,35 +27,14 @@ function calcStats(vals: number[]): BoxStats {
   }
 }
 
-const dummyVals: Record<string, { responder: number[]; non_responder: number[] }> = {
-  b_cell: {
-    responder: [8, 10, 11, 13, 9, 12, 14, 10, 11, 9, 15, 8, 12, 10, 13],
-    non_responder: [6, 7, 9, 8, 10, 7, 8, 6, 9, 7, 11, 8, 7, 9, 6],
-  },
-  cd4_t_cell: {
-    responder: [30, 34, 36, 32, 35, 38, 33, 36, 31, 37, 34, 35, 36, 32, 38],
-    non_responder: [24, 27, 25, 28, 26, 23, 27, 25, 29, 24, 26, 28, 25, 27, 24],
-  },
-  cd8_t_cell: {
-    responder: [20, 22, 25, 23, 21, 24, 22, 26, 20, 23, 25, 21, 24, 22, 25],
-    non_responder: [18, 20, 19, 22, 18, 21, 19, 20, 22, 18, 21, 20, 19, 21, 18],
-  },
-  nk_cell: {
-    responder: [14, 16, 18, 15, 17, 19, 14, 16, 18, 15, 17, 16, 14, 18, 15],
-    non_responder: [10, 12, 11, 13, 10, 12, 14, 11, 13, 10, 12, 11, 13, 10, 12],
-  },
-  monocyte: {
-    responder: [10, 12, 11, 13, 9, 11, 10, 12, 11, 10, 13, 11, 10, 12, 9],
-    non_responder: [8, 9, 10, 8, 11, 9, 10, 8, 9, 11, 9, 8, 10, 9, 8],
-  },
+interface PopVals {
+  responder: number[]
+  non_responder: number[]
 }
 
-const dummyStats: Record<string, { pValue: number; significant: boolean }> = {
-  b_cell:    { pValue: 0.0312, significant: true },
-  cd4_t_cell:{ pValue: 0.0089, significant: true },
-  cd8_t_cell:{ pValue: 0.2415, significant: false },
-  nk_cell:   { pValue: 0.1823, significant: false },
-  monocyte:  { pValue: 0.0671, significant: false },
+interface PopStat {
+  pValue: number
+  significant: boolean
 }
 
 const popLabels: Record<string, string> = {
@@ -123,12 +102,16 @@ function SingleBox({ stats, cx, boxW, scale, color }: SingleBoxProps) {
 
 // click on any PopChart to open modal -> show expanded SVG + quartile table + p-value
 // reuses SingleBox so the rendering is identical between the small cards and the modal
-function BoxplotModal({ popKey, onClose }: { popKey: string; onClose: () => void }) {
-  const rVals  = dummyVals[popKey].responder
-  const nVals  = dummyVals[popKey].non_responder
+function BoxplotModal({ popKey, vals, stat, onClose }: {
+  popKey: string
+  vals: PopVals
+  stat: PopStat
+  onClose: () => void
+}) {
+  const rVals  = vals.responder
+  const nVals  = vals.non_responder
   const rStats = calcStats(rVals)
   const nStats = calcStats(nVals)
-  const stat   = dummyStats[popKey]
   const isSig  = stat.significant
   const asterisks = sigAsterisks(stat.pValue)
 
@@ -152,7 +135,9 @@ function BoxplotModal({ popKey, onClose }: { popKey: string; onClose: () => void
   const rCx  = M_PAD.left + mPlotW * 0.30
   const nCx  = M_PAD.left + mPlotW * 0.70
 
-  // n row shows sample count per group
+  // n row shows sample count per group - useful context for interpreting p-values
+  // percentage rows formatted to 2dp, n row is integer
+  const fmt = (label: string, val: number) => label === 'n' ? String(val) : val.toFixed(2)
   const statRows: { label: string; r: number; n: number }[] = [
     { label: 'Min',    r: rStats.min,    n: nStats.min },
     { label: 'Q1',     r: rStats.q1,     n: nStats.q1 },
@@ -218,7 +203,7 @@ function BoxplotModal({ popKey, onClose }: { popKey: string; onClose: () => void
             Cell Population
           </div>
           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
-            {popLabels[popKey]}
+            {popLabels[popKey] ?? popKey}
           </div>
         </div>
 
@@ -237,7 +222,7 @@ function BoxplotModal({ popKey, onClose }: { popKey: string; onClose: () => void
                       stroke="var(--border)" strokeWidth={1}
                     />
                     <text x={M_PAD.left - 6} y={y + 4} textAnchor="end" fontSize={9} fill="var(--text-tertiary)">
-                      {Math.round(t)}
+                      {t.toFixed(1)}
                     </text>
                   </g>
                 )
@@ -306,10 +291,10 @@ function BoxplotModal({ popKey, onClose }: { popKey: string; onClose: () => void
                       {row.label}
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: "'DM Mono', monospace", color: 'var(--text-primary)', fontWeight: row.label === 'Median' ? 700 : 400 }}>
-                      {row.r}
+                      {fmt(row.label, row.r)}
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: "'DM Mono', monospace", color: 'var(--text-primary)', fontWeight: row.label === 'Median' ? 700 : 400 }}>
-                      {row.n}
+                      {fmt(row.label, row.n)}
                     </td>
                   </tr>
                 ))}
@@ -322,10 +307,14 @@ function BoxplotModal({ popKey, onClose }: { popKey: string; onClose: () => void
   )
 }
 
-function PopChart({ popKey, onClick }: { popKey: string; onClick: () => void }) {
-  const rStats = calcStats(dummyVals[popKey].responder)
-  const nStats = calcStats(dummyVals[popKey].non_responder)
-  const stat   = dummyStats[popKey]
+function PopChart({ popKey, vals, stat, onClick }: {
+  popKey: string
+  vals: PopVals
+  stat: PopStat
+  onClick: () => void
+}) {
+  const rStats = calcStats(vals.responder)
+  const nStats = calcStats(vals.non_responder)
 
   const allVals = [rStats.min, nStats.min, rStats.max, nStats.max]
   const domainMin = Math.floor(Math.min(...allVals) * 0.85)
@@ -358,7 +347,7 @@ function PopChart({ popKey, onClick }: { popKey: string; onClick: () => void }) 
       }}
       onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.02)'}
       onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'}
-      title={`Click to expand ${popLabels[popKey]}`}
+      title={`Click to expand ${popLabels[popKey] ?? popKey}`}
     >
       {/* population label */}
       <div style={{
@@ -368,7 +357,7 @@ function PopChart({ popKey, onClick }: { popKey: string; onClick: () => void }) 
         letterSpacing: '0.06em',
         textTransform: 'uppercase',
       }}>
-        {popLabels[popKey]}
+        {popLabels[popKey] ?? popKey}
       </div>
 
       {/* the box plot SVG */}
@@ -383,7 +372,7 @@ function PopChart({ popKey, onClick }: { popKey: string; onClick: () => void }) 
                 stroke="var(--border)" strokeWidth={1}
               />
               <text x={PAD.left - 4} y={y + 3.5} textAnchor="end" fontSize={7.5} fill="var(--text-tertiary)">
-                {Math.round(t)}
+                {t.toFixed(1)}
               </text>
             </g>
           )
@@ -427,10 +416,6 @@ function PopChart({ popKey, onClick }: { popKey: string; onClick: () => void }) 
   )
 }
 
-interface BoxplotSectionProps {
-  loading?: boolean
-}
-
 function Shimmer({ width, height }: { width: string | number; height: number }) {
   return (
     <div style={{
@@ -444,19 +429,53 @@ function Shimmer({ width, height }: { width: string | number; height: number }) 
   )
 }
 
-export default function BoxplotSection({ loading = false }: BoxplotSectionProps) {
-  const pops = Object.keys(dummyVals)
+export default function BoxplotSection() {
+  const [boxplotData, setBoxplotData] = useState<Record<string, PopVals> | null>(null)
+  const [statsData, setStatsData] = useState<Record<string, PopStat> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedPop, setSelectedPop] = useState<string | null>(null)
+
+  useEffect(() => {
+    // fetch both endpoints in parallel, both req for basic render
+    Promise.all([
+      fetch('/api/boxplot-data').then(r => r.json()),
+      fetch('/api/stats').then(r => r.json()),
+    ])
+      .then(([bpData, statsArr]) => {
+        setBoxplotData(bpData)
+        // convert array from /api/stats -> record keyed by pop for cache lookup
+        const statsRecord: Record<string, PopStat> = {}
+        for (const s of statsArr) {
+          statsRecord[s.population] = { pValue: s.p_value, significant: s.significant }
+        }
+        setStatsData(statsRecord)
+        setLoading(false)
+      })
+      .catch(() => setError('Failed to load boxplot data'))
+  }, [])
+
+  const pops = boxplotData ? Object.keys(boxplotData) : ['b_cell', 'cd4_t_cell', 'cd8_t_cell', 'nk_cell', 'monocyte']
+
+  if (error) {
+    return <div style={{ color: 'var(--text-tertiary)', fontSize: 13 }}>{error}</div>
+  }
 
   if (loading) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16 }}>
-        {pops.map(pop => (
-          <div key={pop} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <Shimmer width="100%" height={180} />
-            <Shimmer width="80%" height={24} />
-          </div>
-        ))}
+      <div>
+        <div style={{ marginBottom: 20, textAlign: 'center' }}>
+          <Shimmer width={200} height={14} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16 }}>
+          {pops.map(pop => (
+            <div key={pop} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <Shimmer width="60%" height={10} />
+              <Shimmer width="100%" height={170} />
+              <Shimmer width="80%" height={24} />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -481,7 +500,13 @@ export default function BoxplotSection({ loading = false }: BoxplotSectionProps)
         marginBottom: 20,
       }}>
         {pops.map(pop => (
-          <PopChart key={pop} popKey={pop} onClick={() => setSelectedPop(pop)} />
+          <PopChart
+            key={pop}
+            popKey={pop}
+            vals={boxplotData![pop]}
+            stat={statsData![pop]}
+            onClick={() => setSelectedPop(pop)}
+          />
         ))}
       </div>
 
@@ -511,9 +536,14 @@ export default function BoxplotSection({ loading = false }: BoxplotSectionProps)
         </div>
       </div>
 
-      {/* modal */}
-      {selectedPop && (
-        <BoxplotModal popKey={selectedPop} onClose={() => setSelectedPop(null)} />
+      {/* modal - only rendered when a pop is selected */}
+      {selectedPop && boxplotData && statsData && (
+        <BoxplotModal
+          popKey={selectedPop}
+          vals={boxplotData[selectedPop]}
+          stat={statsData[selectedPop]}
+          onClose={() => setSelectedPop(null)}
+        />
       )}
     </div>
   )

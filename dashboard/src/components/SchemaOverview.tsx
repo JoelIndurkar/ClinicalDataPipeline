@@ -1,22 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // P1 - database schema overview
 // combined the stat row and schema table into one card to reduce vertical footprint
 // originally had them as separate cards but it took up too much space
+
 interface TableInfo {
   name: string
   columns: string[]
   row_count: number
-}
-
-const placeholderTables: TableInfo[] = [
-  { name: 'subjects',    columns: ['subject', 'condition', 'age', 'sex'], row_count: 3500 },
-  { name: 'samples',     columns: ['sample', 'subject', 'project', 'sample_type', 'time_from_treatment_start', 'treatment', 'response'], row_count: 10500 },
-  { name: 'cell_counts', columns: ['id', 'sample', 'population', 'count'], row_count: 52500 },
-] // placeholder data matching actual DB shape -> row counts match load_data.py out
-
-interface Props {
-  loading?: boolean
 }
 
 function Shimmer({ width, height }: { width: string | number; height: number }) {
@@ -49,47 +40,81 @@ function ColChip({ name }: { name: string }) {
   )
 }
 
-export default function SchemaOverview({ loading = false }: Props) {
-  const tables = placeholderTables
+export default function SchemaOverview() {
+  const [tables, setTables] = useState<TableInfo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [hoveredRow, setHoveredRow] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/schema-info')
+      .then(r => r.json())
+      .then(data => {
+        setTables(data.tables)
+        setLoading(false)
+      })
+      .catch(() => setError('Failed to load schema'))
+  }, [])
+
+  if (error) {
+    return (
+      <div className="card" style={{ padding: '16px 20px', color: 'var(--text-tertiary)', fontSize: 13 }}>
+        {error}
+      </div>
+    )
+  }
+
+  // placeholder rows for the shimmer state - 3 rows matching the real table count
+  const shimmerRows = [1, 2, 3]
 
   return (
     <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* inline stat row - compact alternative to full stat cards */}
+      {/* inline stat row */}
       <div className="schemaCards">
-        {tables.map(t => (
-          <div key={t.name} style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 8,
-            padding: '8px 12px',
-            background: 'var(--bg)',
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-          }}>
-            <span style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: '0.07em',
-              textTransform: 'uppercase',
-              color: 'var(--data-blue)',
-              whiteSpace: 'nowrap',
-            }}>
-              {loading ? <Shimmer width={50} height={10} /> : t.name}
-            </span>
-            <span style={{
-              fontSize: 16,
-              fontWeight: 700,
-              fontFamily: "'DM Mono', monospace",
-              color: 'var(--text-primary)',
-              lineHeight: 1,
-            }}>
-              {loading ? <Shimmer width={40} height={16} /> : t.row_count.toLocaleString()}
-            </span>
-            <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>rows</span>
-          </div>
-        ))}
+        {loading
+          ? shimmerRows.map(i => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'baseline', gap: 8,
+                padding: '8px 12px', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--border)',
+              }}>
+                <Shimmer width={50} height={10} />
+                <Shimmer width={40} height={16} />
+              </div>
+            ))
+          : tables.map(t => (
+              <div key={t.name} style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 8,
+                padding: '8px 12px',
+                background: 'var(--bg)',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+              }}>
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.07em',
+                  textTransform: 'uppercase',
+                  color: 'var(--data-blue)',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {t.name}
+                </span>
+                <span style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  fontFamily: "'DM Mono', monospace",
+                  color: 'var(--text-primary)',
+                  lineHeight: 1,
+                }}>
+                  {t.row_count.toLocaleString()}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>rows</span>
+              </div>
+            ))
+        }
       </div>
 
       {/* schema table */}
@@ -125,41 +150,46 @@ export default function SchemaOverview({ loading = false }: Props) {
             </tr>
           </thead>
           <tbody>
-            {tables.map((t, i) => {
-              const isHovered = hoveredRow === t.name
-              return (
-                <tr
-                  key={t.name}
-                  onMouseEnter={() => setHoveredRow(t.name)}
-                  onMouseLeave={() => setHoveredRow(null)}
-                  style={{
-                    borderBottom: i < tables.length - 1 ? '1px solid var(--border)' : 'none',
-                    background: isHovered ? 'var(--row-hover)' : 'transparent',
-                    transition: 'background var(--transition)',
-                  }}
-                >
-                  <td style={{
-                    padding: '9px 14px',
-                    fontWeight: 600,
-                    color: 'var(--text-primary)',
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: 11.5,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {loading ? <Shimmer width={70} height={11} /> : t.name}
-                  </td>
-                  <td style={{
-                    padding: '9px 14px',
-                    // truncated by default with a gradient fade 
-                    // expands on hover to show all chips
-                    // gradient mask approach chosen over text-overflow because chips are block elements
-                    overflow: isHovered ? 'visible' : 'hidden',
-                    whiteSpace: isHovered ? 'normal' : 'nowrap',
-                    position: 'relative',
-                  }}>
-                    {loading
-                      ? <Shimmer width="80%" height={11} />
-                      : (
+            {loading
+              ? shimmerRows.map((_, i) => (
+                  <tr key={i} style={{ borderBottom: i < shimmerRows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <td style={{ padding: '9px 14px' }}><Shimmer width={70} height={11} /></td>
+                    <td style={{ padding: '9px 14px' }}><Shimmer width="80%" height={11} /></td>
+                    <td style={{ padding: '9px 14px' }}><Shimmer width={50} height={11} /></td>
+                  </tr>
+                ))
+              : tables.map((t, i) => {
+                  const isHovered = hoveredRow === t.name
+                  return (
+                    <tr
+                      key={t.name}
+                      onMouseEnter={() => setHoveredRow(t.name)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                      style={{
+                        borderBottom: i < tables.length - 1 ? '1px solid var(--border)' : 'none',
+                        background: isHovered ? 'var(--row-hover)' : 'transparent',
+                        transition: 'background var(--transition)',
+                      }}
+                    >
+                      <td style={{
+                        padding: '9px 14px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 11.5,
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {t.name}
+                      </td>
+                      <td style={{
+                        padding: '9px 14px',
+                        // trunc by default with a gradient fade
+                        // expands on hover to show all chips
+                        // gradient mask approach chosen over text-overflow because chips are block elements
+                        overflow: isHovered ? 'visible' : 'hidden',
+                        whiteSpace: isHovered ? 'normal' : 'nowrap',
+                        position: 'relative',
+                      }}>
                         <div style={{
                           display: 'flex',
                           flexWrap: isHovered ? 'wrap' : 'nowrap',
@@ -171,23 +201,22 @@ export default function SchemaOverview({ loading = false }: Props) {
                         }}>
                           {t.columns.map(col => <ColChip key={col} name={col} />)}
                         </div>
-                      )
-                    }
-                  </td>
-                  <td style={{
-                    padding: '9px 14px',
-                    fontFamily: "'DM Mono', monospace",
-                    fontWeight: 500,
-                    color: 'var(--text-primary)',
-                    fontSize: 11.5,
-                    textAlign: 'right',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {loading ? <Shimmer width={50} height={11} /> : t.row_count.toLocaleString()}
-                  </td>
-                </tr>
-              )
-            })}
+                      </td>
+                      <td style={{
+                        padding: '9px 14px',
+                        fontFamily: "'DM Mono', monospace",
+                        fontWeight: 500,
+                        color: 'var(--text-primary)',
+                        fontSize: 11.5,
+                        textAlign: 'right',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {t.row_count.toLocaleString()}
+                      </td>
+                    </tr>
+                  )
+                })
+            }
           </tbody>
         </table>
       </div>

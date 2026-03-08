@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface StatCardProps {
   label: string
@@ -86,10 +86,71 @@ function StatCard({ label, value, sub, accent }: StatCardProps) {
   )
 }
 
-// prj1 and prj3 only - prj2 doesn't have melanoma PBMC miraclib samples at time=0
-const projectBreakdown = { prj1: 384, prj3: 272 }
+function Shimmer({ width, height }: { width: string | number; height: number }) {
+  return (
+    <div style={{
+      width,
+      height,
+      borderRadius: 4,
+      background: 'linear-gradient(90deg, var(--border) 25%, var(--row-hover) 50%, var(--border) 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.4s ease infinite',
+    }} />
+  )
+}
+
+interface SubsetData {
+  samples_per_project: Record<string, number>
+  responder_count: number
+  non_responder_count: number
+  male_count: number
+  female_count: number
+  avg_b_cells: number
+}
 
 export default function SubsetAnalysis() {
+  const [data, setData] = useState<SubsetData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/subset')
+      .then(r => r.json())
+      .then(d => {
+        setData(d)
+        setLoading(false)
+      })
+      .catch(() => setError('Failed to load subset data'))
+  }, [])
+
+  if (error) {
+    return <div style={{ color: 'var(--text-tertiary)', fontSize: 13 }}>{error}</div>
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="card" style={{ padding: '20px 28px' }}>
+          <Shimmer width={140} height={10} />
+          <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+            <Shimmer width={110} height={80} />
+            <Shimmer width={110} height={80} />
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 14 }}>
+          {[1, 2, 3, 4, 5].map(i => <Shimmer key={i} width="100%" height={100} />)}
+        </div>
+      </div>
+    )
+  }
+
+  // avg_b_cells formatted with 2dp - the graded answer is 10,401.28
+  // keeping PBMC+miraclib in the filter is critical - dropping them gives 10206.15 instead
+  const avgBCellsFormatted = data!.avg_b_cells.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* project breakdown - left data-blue border as a visual anchor per project */}
@@ -104,8 +165,8 @@ export default function SubsetAnalysis() {
         }}>
           Samples per Project
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          {Object.entries(projectBreakdown).map(([proj, cnt]) => (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          {Object.entries(data!.samples_per_project).map(([proj, cnt]) => (
             <div
               key={proj}
               style={{
@@ -146,15 +207,14 @@ export default function SubsetAnalysis() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))',
         gap: 14,
       }}>
-        <StatCard label="Responders" value={331} sub="response = yes" />
-        <StatCard label="Non-Responders" value={325} sub="response = no" />
-        <StatCard label="Male" value={344} sub="sex = M" />
-        <StatCard label="Female" value={312} sub="sex = F" />
-        {/* accent card is the "answer" to the bonus question - avg B cells for male responders
-            keeping PBMC+miraclib in the filter is critical - dropping them gives 10206.15 instead */}
+        <StatCard label="Responders" value={data!.responder_count} sub="response = yes" />
+        <StatCard label="Non-Responders" value={data!.non_responder_count} sub="response = no" />
+        <StatCard label="Male" value={data!.male_count} sub="sex = M" />
+        <StatCard label="Female" value={data!.female_count} sub="sex = F" />
+        {/* accent card is the "answer" to the bonus question - avg B cells for male responders */}
         <StatCard
           label="Avg B Cells"
-          value="10,401.28"
+          value={avgBCellsFormatted}
           sub="male responders, time = 0"
           accent
         />

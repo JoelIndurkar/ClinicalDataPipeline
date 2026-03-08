@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 interface Row {
   sample: string
@@ -6,28 +6,6 @@ interface Row {
   population: string
   count: number
   percentage: number
-}
-
-// random dummy data - regenerated on each page load, fine for placeholder purposes
-const populations = ['b_cell', 'cd4_t_cell', 'cd8_t_cell', 'nk_cell', 'monocyte']
-const dummyData: Row[] = []
-for (let i = 0; i < 6; i++) {
-  const sampleId = `sample${String(i).padStart(5, '0')}`
-  const total = 80000 + Math.floor(Math.random() * 40000)
-  let remaining = total
-  populations.forEach((pop, idx) => {
-    const cnt = idx === populations.length - 1
-      ? remaining  // last pop gets the remainder to ensure percentages add up
-      : Math.floor(remaining * (0.1 + Math.random() * 0.25))
-    remaining -= cnt
-    dummyData.push({
-      sample: sampleId,
-      total_count: total,
-      population: pop,
-      count: cnt,
-      percentage: Math.round((cnt / total) * 10000) / 100,
-    })
-  })
 }
 
 type SortKey = keyof Row
@@ -65,16 +43,25 @@ function Shimmer({ width, height }: { width: string | number; height: number }) 
   )
 }
 
-interface DataTableProps {
-  loading?: boolean
-}
-
-export default function DataTable({ loading = false }: DataTableProps) {
+export default function DataTable() {
+  const [data, setData] = useState<Row[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('sample')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const [hoveredRow, setHoveredRow] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch('/api/summary')
+      .then(r => r.json())
+      .then(rows => {
+        setData(rows)
+        setLoading(false)
+      })
+      .catch(() => setError('Failed to load data'))
+  }, [])
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -87,19 +74,20 @@ export default function DataTable({ loading = false }: DataTableProps) {
   }
 
   const sorted = useMemo(() => {
-    return [...dummyData].sort((a, b) => {
+    return [...data].sort((a, b) => {
       const aVal = a[sortKey]
       const bVal = b[sortKey]
       if (aVal < bVal) return sortDir === 'asc' ? -1 : 1
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1
       return 0
     })
-  }, [sortKey, sortDir])
+  }, [data, sortKey, sortDir])
 
   const totalPages = Math.ceil(sorted.length / pageSize)
   const pageRows = sorted.slice(page * pageSize, (page + 1) * pageSize)
 
   function exportCSV() {
+    // export the full sorted dataset, not just the current page
     const headers = ['sample', 'total_count', 'population', 'count', 'percentage']
     const rows = sorted.map(r =>
       [r.sample, r.total_count, r.population, r.count, r.percentage].join(',')
@@ -127,6 +115,10 @@ export default function DataTable({ loading = false }: DataTableProps) {
     outline: 'none',
   }
 
+  if (error) {
+    return <div style={{ color: 'var(--text-tertiary)', fontSize: 13, padding: '20px 0' }}>{error}</div>
+  }
+
   if (loading) {
     return (
       <div>
@@ -146,7 +138,7 @@ export default function DataTable({ loading = false }: DataTableProps) {
 
   return (
     <div>
-      {/* export button */}
+      {/* export button - exports full sorted dataset, not just current page */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <button
           onClick={exportCSV}
@@ -222,6 +214,8 @@ export default function DataTable({ loading = false }: DataTableProps) {
                     position: 'relative',
                   }}
                 >
+                  {/* inset box-shadow on first cell gives a left accent bar on hover
+                      using box-shadow instead of border-left so it doesn't shift layout */}
                   <td style={{
                     padding: '12px 16px',
                     color: 'var(--text-primary)',
