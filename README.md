@@ -1,4 +1,5 @@
-# Teiko Clinical Trial Analysis
+# Clinical Trial Analysis Pipeline
+Built as a technical assessment for Teiko Bio to process and visualize immune cell count data from clinical trials.
 
 A clinical trial dashboard built with FastAPI and React. 
 Cell count data from a CSV is...
@@ -6,6 +7,21 @@ Cell count data from a CSV is...
 - -> statistical analysis runs against that database
 - -> results are served through an API to an interactive dashboard for exploring immune cell populations across patient groups.
 
+---
+
+## Dashboard Screenshots
+
+<img width="1095" height="846" alt="InitialRender" src="https://github.com/user-attachments/assets/462f7064-dec6-4108-8b11-2bc5990654ef" />
+
+<img width="1100" height="848" alt="Table" src="https://github.com/user-attachments/assets/08bab921-27cb-446d-a4be-9e645aca4f3b" />
+
+<img width="1100" height="849" alt="StatisticalAnalysis" src="https://github.com/user-attachments/assets/c76f033e-a981-4868-88f9-26d00d61ac17" />
+
+<img width="654" height="477" alt="BoxPlotModal" src="https://github.com/user-attachments/assets/6103bce0-0f9e-4e0b-a40c-6b7890f51acd" />
+
+<img width="1102" height="422" alt="SubsetAnalysis" src="https://github.com/user-attachments/assets/383a1795-653e-42cd-93f0-a9be87c80ddb" />
+
+<img width="1106" height="846" alt="DarkMode" src="https://github.com/user-attachments/assets/46211716-42e4-4fde-a691-3930ee3ec93f" 
 **Link to Dashboard:** http://localhost:5173
 
 ---
@@ -29,7 +45,38 @@ make test       # run frontend/backend tests (already run on push/pull)
    - Dashboard: http://localhost:5173
    - API docs: http://localhost:8000/docs
 
-<img width="1095" height="846" alt="InitialRender" src="https://github.com/user-attachments/assets/462f7064-dec6-4108-8b11-2bc5990654ef" />
+---
+
+## Technologies Used
+- **Backend:** Python, FastAPI, SQLite, uvicorn, pandas, scipy, matplotlib, seaborn
+- **Frontend:** React, TypeScript, Vite, Recharts, html2canvas
+- **Testing:** pytest, pytest-cov, httpx, Vitest, React Testing Library, jsdom
+- **CI:** GitHub Actions
+- **Infrastructure:** Makefile, GitHub Codespaces
+
+---
+
+## Code Structure
+
+```
+load_data.py        parse CSV and populate SQLite
+analysis.py         Parts 2-4: frequency table, stats, boxplots
+api.py              FastAPI endpoints serving JSON to the dashboard
+src/
+  db.py             schema definition and connection helper
+  stats.py          statistical utility functions
+dashboard/
+  src/
+    App.tsx         nav, dark mode, scroll tracking
+    components/     DataTable, BoxplotSection, FilterBar, SchemaOverview, SettingsPanel, SubsetAnalysis
+    __tests__/      Frontend testing
+output/             generated CSV tables and PNG plots (from make pipeline)
+tests/              Backend testing
+```
+
+The frontend has no business logic. All aggregation and statistical computation happens in the backend. The React components handle rendering and interaction while the API handles the numbers.
+
+Data goes into SQLite rather than staying in memory to keep the API stateless. Each request opens a connection, runs a query, and closes it. Nothing persists between requests, which makes the API straightforward to develop and test.
 
 ---
 
@@ -83,30 +130,6 @@ For a production system, the backend would need auth (JWT or OAuth), rate limiti
 
 ---
 
-## Code Structure
-
-```
-load_data.py        parse CSV and populate SQLite
-analysis.py         Parts 2-4: frequency table, stats, boxplots
-api.py              FastAPI endpoints serving JSON to the dashboard
-src/
-  db.py             schema definition and connection helper
-  stats.py          statistical utility functions
-dashboard/
-  src/
-    App.tsx         nav, dark mode, scroll tracking
-    components/     DataTable, BoxplotSection, FilterBar, SchemaOverview, SettingsPanel, SubsetAnalysis
-    __tests__/      Frontend testing
-output/             generated CSV tables and PNG plots (from make pipeline)
-tests/              Backend testing
-```
-
-The frontend has no business logic. All aggregation and statistical computation happens in the backend. The React components handle rendering and interaction while the API handles the numbers.
-
-Data goes into SQLite rather than staying in memory to keep the API stateless. Each request opens a connection, runs a query, and closes it. Nothing persists between requests, which makes the API straightforward to develop and test.
-
----
-
 ## Testing
 
 **Backend** (pytest with coverage):
@@ -122,26 +145,4 @@ cd dashboard && npm run test:coverage
 - The backend achieves 100% coverage on `api.py`, `load_data.py`, and `src/db.py`.
 - The frontend sits at 99.5% statements and 100% lines and functions across all components.
 - CI runs on every push and pull request to `main` with GitHub Actions.
-
----
-
-## Dashboard Screenshots
-
-<img width="1100" height="848" alt="Table" src="https://github.com/user-attachments/assets/08bab921-27cb-446d-a4be-9e645aca4f3b" />
-
-<img width="1100" height="849" alt="StatisticalAnalysis" src="https://github.com/user-attachments/assets/c76f033e-a981-4868-88f9-26d00d61ac17" />
-
-<img width="654" height="477" alt="BoxPlotModal" src="https://github.com/user-attachments/assets/6103bce0-0f9e-4e0b-a40c-6b7890f51acd" />
-
-<img width="1102" height="422" alt="SubsetAnalysis" src="https://github.com/user-attachments/assets/383a1795-653e-42cd-93f0-a9be87c80ddb" />
-
-<img width="1106" height="846" alt="DarkMode" src="https://github.com/user-attachments/assets/46211716-42e4-4fde-a691-3930ee3ec93f" />
-
----
-
-## Technologies Used
-- **Backend:** Python, FastAPI, SQLite, uvicorn, pandas, scipy, matplotlib, seaborn
-- **Frontend:** React, TypeScript, Vite, Recharts, html2canvas
-- **Testing:** pytest, pytest-cov, httpx, Vitest, React Testing Library, jsdom
-- **CI:** GitHub Actions
-- **Infrastructure:** Makefile, GitHub Codespaces
+/>
