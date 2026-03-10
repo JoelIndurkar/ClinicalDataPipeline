@@ -21,8 +21,7 @@ Cell count data from a CSV is...
 
 <img width="1102" height="422" alt="SubsetAnalysis" src="https://github.com/user-attachments/assets/383a1795-653e-42cd-93f0-a9be87c80ddb" />
 
-<img width="1106" height="846" alt="DarkMode" src="https://github.com/user-attachments/assets/46211716-42e4-4fde-a691-3930ee3ec93f" 
-**Link to Dashboard:** http://localhost:5173
+<img width="1106" height="846" alt="DarkMode" src="https://github.com/user-attachments/assets/46211716-42e4-4fde-a691-3930ee3ec93f" />
 
 ---
 
